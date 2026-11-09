@@ -99,7 +99,7 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -110,7 +110,7 @@ do
   vim.o.number = true
   -- You can also add relative line numbers, to help with jumping.
   --  Experiment for yourself to see if you like it!
-  -- vim.o.relativenumber = true
+  vim.o.relativenumber = true
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
@@ -210,6 +210,7 @@ do
   }
 
   vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+  vim.keymap.set('n', '-', ':Ex<CR>')
 
   -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
   -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -423,18 +424,62 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
-  ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
+  vim.pack.add { 
+    gh 'folke/tokyonight.nvim',
+    { src = 'https://github.com/catppuccin/nvim', name = 'catppuccin' },
   }
 
-  -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+
+  -- Edit these two to change your presets
+  local presets = {
+    dark  = { background = 'dark',  colorscheme = 'tokyonight-night' },
+    light = { background = 'light', colorscheme = 'catppuccin-latte' },
+  }
+
+  local state_file = vim.fn.stdpath 'state' .. '/theme_preset'
+
+  local function apply(name)
+    local p = presets[name]
+    if not p then
+      vim.notify('Unknown theme preset: ' .. name, vim.log.levels.ERROR)
+      return
+    end
+    vim.o.background = p.background
+    vim.cmd.colorscheme(p.colorscheme)
+    vim.g.theme_preset = name
+    pcall(vim.fn.writefile, { name }, state_file)
+  end
+
+  -- Custom highlights that should survive every theme switch
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    callback = function()
+    if vim.o.background == 'light' then
+      vim.api.nvim_set_hl(0, 'SnacksImageMath', { fg = '#000000' })
+    else
+      vim.api.nvim_set_hl(0, 'SnacksImageMath', { fg = '#ffffff' })
+    end
+    end,
+  })
+
+  -- Restore last choice (default: dark)
+  local ok, lines = pcall(vim.fn.readfile, state_file)
+  apply((ok and lines[1] and presets[lines[1]]) and lines[1] or 'dark')
+
+  -- :Theme dark | :Theme light
+  vim.api.nvim_create_user_command('Theme', function(opts) apply(opts.args) end, {
+    nargs = 1,
+    complete = function() return vim.tbl_keys(presets) end,
+  })
+
+  -- :ThemeToggle and <leader>tt
+  local function toggle() apply(vim.g.theme_preset == 'dark' and 'light' or 'dark') end
+  vim.api.nvim_create_user_command('ThemeToggle', toggle, {})
+  vim.keymap.set('n', '<leader>tt', toggle, { desc = '[T]oggle [T]heme light/dark' })
+
+
+
+
+
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
@@ -734,7 +779,7 @@ do
   ---@type table<string, vim.lsp.Config>
   local servers = {
     -- clangd = {},
-    -- gopls = {},
+    gopls = {},
     -- pyright = {},
     -- tsc = {},
     --
@@ -1014,16 +1059,16 @@ do
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug'
-  -- require 'kickstart.plugins.indent_line'
-  -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.debug'
+  require 'kickstart.plugins.indent_line'
+  require 'kickstart.plugins.lint'
+  require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.neo-tree'
 
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
   --
   -- For independent modules, uncomment the convenience loader:
-  -- require 'custom.plugins'
+  require 'custom.plugins'
   --
   -- `custom.plugins` automatically loads files from that directory, but their
   -- order is unspecified. If plugins depend on each other, keep them in the same
